@@ -9,10 +9,22 @@ from typing import Literal
 
 class PortfolioManagerOutput(BaseModel):
     action: Literal["buy", "sell", "hold"]
-    quantity: int = Field(ge=0)
-    confidence: float = Field(ge=0.0, le=1.0)
-    reasoning: str
+    quantity: int = Field(description="Number of shares to trade")
+    confidence: float = Field(description="Confidence level in the decision", ge=0.0, le=1.0)
+    reasoning: str = Field(description="Explanation for the trading decision")
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "action": "buy",
+                    "quantity": 100,
+                    "confidence": 0.85,
+                    "reasoning": "Strong buy signals across multiple analysts"
+                }
+            ]
+        }
+    }
 
 ##### Portfolio Management Agent #####
 def portfolio_management_agent(state: AgentState):
@@ -66,9 +78,12 @@ def portfolio_management_agent(state: AgentState):
             "portfolio_stock": portfolio["stock"],
         }
     )
-    # Create the LLM
-    llm = ChatOpenAI(model="gpt-4o").with_structured_output(PortfolioManagerOutput)
-    
+    # Create the LLM with function calling
+    llm = ChatOpenAI(model="gpt-4o").with_structured_output(
+        PortfolioManagerOutput,
+        method="function_calling"
+    )
+
     try:
         # Invoke the LLM
         result = llm.invoke(prompt)
