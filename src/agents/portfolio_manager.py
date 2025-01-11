@@ -7,11 +7,12 @@ from graph.state import AgentState, show_agent_reasoning
 from pydantic import BaseModel, Field
 from typing import Literal
 
+
 class PortfolioManagerOutput(BaseModel):
     action: Literal["buy", "sell", "hold"]
     quantity: int = Field(description="Number of shares to trade")
-    confidence: float = Field(description="Confidence level in the decision", ge=0.0, le=1.0)
-    reasoning: str = Field(description="Explanation for the trading decision")
+    confidence: float = Field(description="Confidence in the decision, between 0.0 and 100.0")
+    reasoning: str = Field(description="Reasoning for the decision")
 
     model_config = {
         "json_schema_extra": {
@@ -69,19 +70,29 @@ def portfolio_management_agent(state: AgentState):
     # Generate the prompt
     prompt = template.invoke(
         {
-            "technical_signal": analyst_signals.get("technical_analyst_agent", {}).get("signal", ""),
-            "fundamentals_signal": analyst_signals.get("fundamentals_agent", {}).get("signal", ""),
-            "sentiment_signal": analyst_signals.get("sentiment_agent", {}).get("signal", ""),
-            "valuation_signal": analyst_signals.get("valuation_agent", {}).get("signal", ""),
-            "max_position_size": analyst_signals.get("risk_management_agent", {}).get("max_position_size", 0),
+            "technical_signal": analyst_signals.get("technical_analyst_agent", {}).get(
+                "signal", ""
+            ),
+            "fundamentals_signal": analyst_signals.get("fundamentals_agent", {}).get(
+                "signal", ""
+            ),
+            "sentiment_signal": analyst_signals.get("sentiment_agent", {}).get(
+                "signal", ""
+            ),
+            "valuation_signal": analyst_signals.get("valuation_agent", {}).get(
+                "signal", ""
+            ),
+            "max_position_size": analyst_signals.get("risk_management_agent", {}).get(
+                "max_position_size", 0
+            ),
             "portfolio_cash": f"{portfolio['cash']:.2f}",
             "portfolio_stock": portfolio["stock"],
         }
     )
-    # Create the LLM with function calling
-    llm = ChatOpenAI(model="gpt-4o").with_structured_output(
+    # Create the LLM
+    llm = ChatOpenAI(model="gpt-4").with_structured_output(
         PortfolioManagerOutput,
-        method="function_calling"
+        method="function_calling",
     )
 
     try:
@@ -95,7 +106,7 @@ def portfolio_management_agent(state: AgentState):
         "action": result.action.lower(),
         "quantity": int(result.quantity),
         "confidence": float(result.confidence),
-        "reasoning": result.reasoning
+        "reasoning": result.reasoning,
     }
 
     # Create the portfolio management message
